@@ -33,4 +33,29 @@ componentStore[assetTag] = existing;
 
 return component;
 }
+ resource function delete [string assetTag]/[string componentId]() returns
+http:Ok|http:NotFound {
+Component[]? existing = componentStore[assetTag];
+if existing is () {
+ return <http:NotFound>{
+  body: {message: "No components found for asset: " + assetTag, errorCode: "ASSET_NOT_FOUND", timestamp: nowTimestamp()}
+};
+}
+Component[] filtered = existing.filter(c => c.componentId != componentId);
+if filtered.length() == existing.length(){
+ return <http:NotFound>{
+  body: {message: "Component not found: " + componentId, errorCode: "COMPONENT_NOT_FOUND", timestamp: nowTimestamp()}
+};
+}
+componentStore[assetTag] = filtered;
+return http:OK;
+}
+resource function get [string assetTag]() returns Component[]|http:NotFound {
+if !assetExistsStub(assetTag) {
+ return <http:NotFound>{
+  body: {message: "Asset not found: " + assetTag, errorCode: "ASSET_NOT_FOUND", timestamp: nowTimestamp()}
+};
+}
+return componentStore[assetTag] ?: [];
+}
 }
