@@ -1,5 +1,6 @@
 import ballerina/http;
 import ballerina/uuid;
+import ballerina/time;
 map<Component[]> componentStore = {};
 map<Schedule[]> scheduleStore = {};
 function assetExistsStub(string assetTag) returns boolean {
@@ -134,4 +135,31 @@ existing[idx] = updated;
 scheduleStore[assetTag] = existing;
 
 return updated;
+}
+resource function get [string assetTag]() returns Schedule[]|http:NotFound {
+if !assetExistsStub(assetTag) {
+ return <http:NotFound>{
+  body: {message: "Asset not found: " + assetTag, errorCode: "ASSET_NOT_FOUND", timestamp: nowTimestamp()}
+};
+}
+return scheduleStore[assetTag] ?: [];
+}
+
+resource function get overdue() returns Schedule[] {
+Schedule[] overdueList = [];
+time:Utc now = time:utcNow();
+
+foreach var assetTag in scheduleStore.keys() {
+ foreach Schedule s in scheduleStore[assetTag] ?: [] {
+  string? due = s?.dueDate;
+  if due is string && s.status != "COMPLETED" {
+    time:Utc|error dueUtc = time:utcFromString(due + "T00:00:00.000Z");
+if dueUtc is time:Utc && time:utcDiffSeconds(now, dueUtc) > 0d {
+overdueList.push(s);
+}
+}
+}
+}
+return overdueList;
+}
 }
